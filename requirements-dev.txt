@@ -5,5 +5,7 @@ build>=1.0.0
 wheel>=0.40.0
 setuptools>=68.0.0
 pyarmor>=9.0.0
+pyarmor.cli.core.alpine~=8.1.2; platform_system == "Linux"
+pyarmor.cli.core.linux~=8.1.2; platform_system == "Linux"
 twine>=5.0.0
 cryptography>=42.0.0

@@ -30,7 +30,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     if command -v apk >/dev/null 2>&1; then
         echo "Configuring Alpine package environment (musl libc)..."
         $SUDO apk update >/dev/null 2>&1 || true
-        $SUDO apk add --no-cache python3 py3-pip >/dev/null 2>&1
+        $SUDO apk add --no-cache python3 py3-pip py3-virtualenv py3-pytest >/dev/null 2>&1
     elif command -v apt-get >/dev/null 2>&1; then
         echo "Configuring Debian/Ubuntu package environment (glibc)..."
         export DEBIAN_FRONTEND=noninteractive
@@ -42,7 +42,9 @@ if ! command -v python3 >/dev/null 2>&1; then
     fi
 else
     echo "Python 3 is already installed: $(python3 --version 2>&1)"
-    if command -v apt-get >/dev/null 2>&1; then
+    if command -v apk >/dev/null 2>&1; then
+        $SUDO apk add --no-cache py3-virtualenv py3-pytest >/dev/null 2>&1 || true
+    elif command -v apt-get >/dev/null 2>&1; then
         if ! python3 -m venv --help >/dev/null 2>&1; then
             export DEBIAN_FRONTEND=noninteractive
             $SUDO apt-get update -qq >/dev/null 2>&1 || true
@@ -75,13 +77,14 @@ echo "Found build artifact: $WHEEL_FILE"
 
 # 5. Create clean isolated virtual environment
 VENV_DIR="/tmp/test_venv_$$"
-$PYTHON_BIN -m venv "$VENV_DIR"
+$PYTHON_BIN -m venv --system-site-packages "$VENV_DIR" 2>/dev/null || $PYTHON_BIN -m venv "$VENV_DIR"
 # shellcheck disable=SC1090
 . "$VENV_DIR/bin/activate"
 
 # 6. Install wheel and test dependencies in clean venv
-echo "Installing wheel artifact and pytest into test venv..."
-pip install "$WHEEL_FILE" pytest
+echo "Installing wheel artifact into test venv..."
+pip install --break-system-packages "$WHEEL_FILE" 2>/dev/null || pip install "$WHEEL_FILE"
+pip install --break-system-packages pytest 2>/dev/null || pip install pytest 2>/dev/null || true
 
 # Prepare test output directories
 mkdir -p test-results

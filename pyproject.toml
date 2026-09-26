@@ -36,7 +36,7 @@ where = ["src"]
 include = ["securemath*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.pyd", "*.so", "*.dylib", "*.dll"]
+"*" = ["*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
