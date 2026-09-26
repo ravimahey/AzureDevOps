@@ -253,7 +253,9 @@ stages:
           - script: |
               pip install twine
               echo "Verifying package distribution archives with twine check..."
-              twine check dist/*
+              PKG_FILES=$(ls dist/*.whl dist/*.tar.gz 2>/dev/null || ls dist/*.whl)
+              echo "Target distribution packages: $PKG_FILES"
+              twine check $PKG_FILES
             displayName: "Inspect and Validate Package with Twine"
 
           - script: |
@@ -267,18 +269,22 @@ stages:
                 REPO_URL="https://test.pypi.org/legacy/"
               fi
 
+              PKG_FILES=$(ls dist/*.whl dist/*.tar.gz 2>/dev/null || ls dist/*.whl)
+
               if [ -z "${PYPI_API_TOKEN:-}" ] || [ "${PYPI_API_TOKEN}" = '$(PYPI_API_TOKEN)' ]; then
                 echo "WARNING: PYPI_API_TOKEN is not configured in pipeline secrets."
-                echo "POC Simulated Run: Twine dry-run check passed successfully."
+                echo "POC Simulated Run: Twine package inspection completed successfully."
+                echo "Target packages to upload when token is supplied:"
+                echo "$PKG_FILES"
                 echo "To publish live packages, configure PYPI_API_TOKEN in Azure DevOps secret variables."
               else
-                echo "Uploading wheel and distribution files to $REPO_URL..."
+                echo "Uploading packages to $REPO_URL..."
                 twine upload \
                   --repository-url "$REPO_URL" \
                   -u __token__ \
                   -p "$PYPI_API_TOKEN" \
                   --non-interactive \
-                  dist/*.whl dist/*.tar.gz
+                  $PKG_FILES
               fi
             displayName: "Upload Package to ${{ parameters.publishTarget }}"
             env:
