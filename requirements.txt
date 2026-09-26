@@ -1,0 +1,2 @@
+# Core runtime dependencies for securemath
+# The core library is lightweight and standard-library based.
