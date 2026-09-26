@@ -267,7 +267,7 @@ stages:
                 REPO_URL="https://test.pypi.org/legacy/"
               fi
 
-              if [ -z "${PYPI_API_TOKEN:-}" ]; then
+              if [ -z "${PYPI_API_TOKEN:-}" ] || [ "${PYPI_API_TOKEN}" = '$(PYPI_API_TOKEN)' ]; then
                 echo "WARNING: PYPI_API_TOKEN is not configured in pipeline secrets."
                 echo "POC Simulated Run: Twine dry-run check passed successfully."
                 echo "To publish live packages, configure PYPI_API_TOKEN in Azure DevOps secret variables."

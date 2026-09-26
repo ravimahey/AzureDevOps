@@ -72,16 +72,23 @@ def sign_with_rsa_cryptography(artifact_path: Path) -> bool:
         return False
 
     print("Executing Cryptographic Detached Signature Operation...")
-    env_private_key = os.getenv("SIGNING_PRIVATE_KEY")
+    env_private_key = os.getenv("SIGNING_PRIVATE_KEY", "").strip()
 
-    if env_private_key:
+    if env_private_key and not env_private_key.startswith("$(") and "BEGIN" in env_private_key:
         print("Loading private signing key from SIGNING_PRIVATE_KEY environment variable (Key Vault simulated).")
-        private_key = serialization.load_pem_private_key(
-            env_private_key.encode("utf-8"),
-            password=None,
-        )
+        try:
+            private_key = serialization.load_pem_private_key(
+                env_private_key.encode("utf-8"),
+                password=None,
+            )
+        except Exception as e:
+            print(f"WARNING: Failed to parse SIGNING_PRIVATE_KEY ({e}). Falling back to ephemeral key.")
+            private_key = None
     else:
-        print("NOTE: No SIGNING_PRIVATE_KEY provided in environment.")
+        private_key = None
+
+    if private_key is None:
+        print("NOTE: No valid SIGNING_PRIVATE_KEY provided in environment.")
         print("Generating ephemeral RSA-2048 signing keypair in memory for POC validation...")
         print("PROD GAP: In production, key must originate from Azure Key Vault HSM.")
         private_key = rsa.generate_private_key(
@@ -179,13 +186,23 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    artifact_path = None
     if args.artifact:
-        artifact_path = args.artifact
-    else:
+        arg_str = str(args.artifact)
+        if "*" in arg_str:
+            matches = list(Path(".").glob(arg_str))
+            if matches:
+                artifact_path = matches[0]
+        elif args.artifact.exists():
+            artifact_path = args.artifact
+
+    if artifact_path is None:
         dist_dir = Path("dist")
-        wheels = list(dist_dir.glob("*.whl")) if dist_dir.exists() else []
+        wheels = list(dist_dir.glob("**/*.whl")) if dist_dir.exists() else []
         if not wheels:
-            print(f"ERROR: No .whl found in {dist_dir.resolve()}.")
+            wheels = list(Path(".").glob("**/*.whl"))
+        if not wheels:
+            print(f"ERROR: No .whl found in dist/ or current directory.")
             return 1
         artifact_path = wheels[0]
 

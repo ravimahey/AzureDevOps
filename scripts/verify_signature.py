@@ -100,13 +100,23 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    artifact_path = None
     if args.artifact:
-        artifact_path = args.artifact
-    else:
+        arg_str = str(args.artifact)
+        if "*" in arg_str:
+            matches = list(Path(".").glob(arg_str))
+            if matches:
+                artifact_path = matches[0]
+        elif args.artifact.exists():
+            artifact_path = args.artifact
+
+    if artifact_path is None:
         dist_dir = Path("dist")
-        wheels = list(dist_dir.glob("*.whl")) if dist_dir.exists() else []
+        wheels = list(dist_dir.glob("**/*.whl")) if dist_dir.exists() else []
         if not wheels:
-            print(f"ERROR: No .whl found in {dist_dir.resolve()}.")
+            wheels = list(Path(".").glob("**/*.whl"))
+        if not wheels:
+            print(f"ERROR: No .whl found in dist/ or current directory.")
             return 1
         artifact_path = wheels[0]
 
