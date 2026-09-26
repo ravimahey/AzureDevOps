@@ -80,8 +80,8 @@ $PYTHON_BIN -m venv "$VENV_DIR"
 . "$VENV_DIR/bin/activate"
 
 # 6. Install wheel and test dependencies in clean venv
-pip install --upgrade pip >/dev/null 2>&1 || true
-pip install "$WHEEL_FILE" pytest >/dev/null
+echo "Installing wheel artifact and pytest into test venv..."
+pip install "$WHEEL_FILE" pytest
 
 # Prepare test output directories
 mkdir -p test-results
@@ -92,31 +92,39 @@ LICENSE_STATUS="FAIL"
 OBF_STATUS="FAIL"
 
 # 7. Run Unit Tests
-if pytest "$TEST_DIR/test_calculator.py" --junitxml="test-results/unit-${OS_CLEAN}.xml" -q; then
+echo "=== Running Calculator Unit Tests ==="
+if pytest "$TEST_DIR/test_calculator.py" --junitxml="test-results/unit-${OS_CLEAN}.xml" -v --tb=short; then
     UNIT_STATUS="PASS"
 fi
 
 # 8. Run License Tests
-if pytest "$TEST_DIR/test_license.py" --junitxml="test-results/license-${OS_CLEAN}.xml" -q; then
+echo "=== Running License Validation Tests ==="
+if pytest "$TEST_DIR/test_license.py" --junitxml="test-results/license-${OS_CLEAN}.xml" -v --tb=short; then
     LICENSE_STATUS="PASS"
 fi
 
 # 9. Run Obfuscation Integrity Tests
-if pytest "$TEST_DIR/test_obfuscation.py" --junitxml="test-results/obfuscation-${OS_CLEAN}.xml" -q; then
+echo "=== Running Obfuscation Integrity Tests ==="
+if pytest "$TEST_DIR/test_obfuscation.py" --junitxml="test-results/obfuscation-${OS_CLEAN}.xml" -v --tb=short; then
     OBF_STATUS="PASS"
 fi
 
 # 10. Run Integration Tests (CLI execution)
+echo "=== Running CLI Integration Tests ==="
 CLI_BIN="$VENV_DIR/bin/securemath"
 if [ ! -f "$CLI_BIN" ]; then
     CLI_BIN="securemath"
 fi
 
-CLI_OUT_1=$($CLI_BIN add 10 20 2>/dev/null || true)
-CLI_OUT_2=$($CLI_BIN multiply 5 10 2>/dev/null || true)
+CLI_OUT_1=$($CLI_BIN add 10 20 2>&1 || true)
+CLI_OUT_2=$($CLI_BIN multiply 5 10 2>&1 || true)
 
 if [ "$CLI_OUT_1" = "30" ] && [ "$CLI_OUT_2" = "50" ]; then
     INTEG_STATUS="PASS"
+else
+    echo "ERROR: CLI Integration Output Mismatch:"
+    echo "  securemath add 10 20 output: $CLI_OUT_1"
+    echo "  securemath multiply 5 10 output: $CLI_OUT_2"
 fi
 
 # Clean up temporary venv
