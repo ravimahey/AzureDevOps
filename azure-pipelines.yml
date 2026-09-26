@@ -132,7 +132,6 @@ stages:
               osName: 'Fedora'
         pool:
           vmImage: 'ubuntu-latest'
-        container: $[ variables['containerImage'] ]
         steps:
           - task: DownloadPipelineArtifact@2
             displayName: "Download Build Artifact"
@@ -142,8 +141,14 @@ stages:
               targetPath: '$(System.DefaultWorkingDirectory)/dist'
 
           - script: |
-              chmod +x scripts/run_multi_os_tests.sh
-              ./scripts/run_multi_os_tests.sh dist tests
+              echo "Pulling container image $(containerImage)..."
+              docker pull $(containerImage)
+              echo "Executing tests inside $(osName) container..."
+              docker run --rm \
+                -v $(System.DefaultWorkingDirectory):/workspace \
+                -w /workspace \
+                $(containerImage) \
+                sh -c "chmod +x scripts/run_multi_os_tests.sh && ./scripts/run_multi_os_tests.sh dist tests"
             displayName: "Execute Multi-OS Test Suite ($(osName))"
 
           - task: PublishTestResults@2
