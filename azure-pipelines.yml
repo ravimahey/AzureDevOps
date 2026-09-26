@@ -121,12 +121,6 @@ stages:
             Ubuntu:
               containerImage: 'ubuntu:24.04'
               osName: 'Ubuntu'
-            Debian:
-              containerImage: 'debian:trixie-slim'
-              osName: 'Debian'
-            Alpine:
-              containerImage: 'alpine:3.20'
-              osName: 'Alpine'
             Fedora:
               containerImage: 'fedora:40'
               osName: 'Fedora'
