@@ -145,6 +145,7 @@ stages:
               docker pull $(containerImage)
               echo "Executing tests inside $(osName) container..."
               docker run --rm \
+                --user 0:0 \
                 -v $(System.DefaultWorkingDirectory):/workspace \
                 -w /workspace \
                 $(containerImage) \

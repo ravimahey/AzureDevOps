@@ -19,22 +19,36 @@ if [ -f /etc/os-release ]; then
 fi
 OS_CLEAN=$(echo "$OS_NAME" | tr ' /' '_')
 
-# 2. Package manager setup if running in minimal container
-if command -v apk >/dev/null 2>&1; then
-    # Alpine Linux (musl libc)
-    echo "Configuring Alpine package environment (musl libc)..."
-    apk update >/dev/null
-    apk add --no-cache python3 py3-pip >/dev/null
-elif command -v apt-get >/dev/null 2>&1; then
-    # Debian / Ubuntu (glibc)
-    echo "Configuring Debian/Ubuntu package environment (glibc)..."
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq >/dev/null
-    apt-get install -y -qq python3 python3-pip python3-venv >/dev/null
-elif command -v dnf >/dev/null 2>&1; then
-    # Fedora / RHEL
-    echo "Configuring Fedora package environment..."
-    dnf install -y -q python3 python3-pip findutils >/dev/null
+# 2. Package manager setup if python3 or venv is missing
+SUDO=""
+if [ "$(id -u 2>/dev/null || echo 1)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "Python 3 not detected. Installing via system package manager..."
+    if command -v apk >/dev/null 2>&1; then
+        echo "Configuring Alpine package environment (musl libc)..."
+        $SUDO apk update >/dev/null 2>&1 || true
+        $SUDO apk add --no-cache python3 py3-pip >/dev/null 2>&1
+    elif command -v apt-get >/dev/null 2>&1; then
+        echo "Configuring Debian/Ubuntu package environment (glibc)..."
+        export DEBIAN_FRONTEND=noninteractive
+        $SUDO apt-get update -qq >/dev/null 2>&1 || true
+        $SUDO apt-get install -y -qq python3 python3-pip python3-venv >/dev/null 2>&1
+    elif command -v dnf >/dev/null 2>&1; then
+        echo "Configuring Fedora package environment..."
+        $SUDO dnf install -y -q python3 python3-pip findutils >/dev/null 2>&1
+    fi
+else
+    echo "Python 3 is already installed: $(python3 --version 2>&1)"
+    if command -v apt-get >/dev/null 2>&1; then
+        if ! python3 -m venv --help >/dev/null 2>&1; then
+            export DEBIAN_FRONTEND=noninteractive
+            $SUDO apt-get update -qq >/dev/null 2>&1 || true
+            $SUDO apt-get install -y -qq python3-venv >/dev/null 2>&1 || true
+        fi
+    fi
 fi
 
 # 3. Detect Python Version
@@ -108,6 +122,7 @@ fi
 # Clean up temporary venv
 deactivate || true
 rm -rf "$VENV_DIR"
+chmod -R 777 test-results 2>/dev/null || true
 
 # 11. Print standardized test banner matching Section 13
 echo ""
