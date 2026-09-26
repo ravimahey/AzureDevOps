@@ -72,20 +72,47 @@ def sign_with_rsa_cryptography(artifact_path: Path) -> bool:
         return False
 
     print("Executing Cryptographic Detached Signature Operation...")
-    env_private_key = os.getenv("SIGNING_PRIVATE_KEY", "").strip()
+    raw_env_key = os.getenv("SIGNING_PRIVATE_KEY", "").strip()
 
-    if env_private_key and not env_private_key.startswith("$(") and "BEGIN" in env_private_key:
-        print("Loading private signing key from SIGNING_PRIVATE_KEY environment variable (Key Vault simulated).")
-        try:
-            private_key = serialization.load_pem_private_key(
-                env_private_key.encode("utf-8"),
-                password=None,
-            )
-        except Exception as e:
-            print(f"WARNING: Failed to parse SIGNING_PRIVATE_KEY ({e}). Falling back to ephemeral key.")
-            private_key = None
-    else:
-        private_key = None
+    private_key = None
+    if raw_env_key and not raw_env_key.startswith("$("):
+        print("Parsing private signing key from SIGNING_PRIVATE_KEY environment variable...")
+        key_bytes = None
+
+        # Check 1: Base64-encoded PEM
+        if not raw_env_key.startswith("-----BEGIN"):
+            try:
+                decoded = base64.b64decode(raw_env_key)
+                if b"-----BEGIN" in decoded:
+                    key_bytes = decoded
+            except Exception:
+                pass
+
+        # Check 2: Escaped literal \n
+        if key_bytes is None and "\\n" in raw_env_key:
+            key_bytes = raw_env_key.replace("\\n", "\n").encode("utf-8")
+
+        # Check 3: PEM where Azure DevOps UI converted newlines to spaces
+        if key_bytes is None and "\n" not in raw_env_key and "-----BEGIN" in raw_env_key:
+            import re
+            m = re.match(r"(-----BEGIN [A-Z ]+-----)\s*(.*?)\s*(-----END [A-Z ]+-----)", raw_env_key)
+            if m:
+                header, body, footer = m.groups()
+                clean_body = re.sub(r"\s+", "", body)
+                chunked = "\n".join(clean_body[i:i+64] for i in range(0, len(clean_body), 64))
+                key_bytes = f"{header}\n{chunked}\n{footer}\n".encode("utf-8")
+
+        # Check 4: Standard multi-line PEM
+        if key_bytes is None and "BEGIN" in raw_env_key:
+            key_bytes = raw_env_key.encode("utf-8")
+
+        if key_bytes:
+            try:
+                private_key = serialization.load_pem_private_key(key_bytes, password=None)
+                print("SUCCESS: Successfully loaded and verified custom RSA private key.")
+            except Exception as e:
+                print(f"WARNING: Could not parse SIGNING_PRIVATE_KEY ({e}). Falling back to ephemeral key.")
+                private_key = None
 
     if private_key is None:
         print("NOTE: No valid SIGNING_PRIVATE_KEY provided in environment.")
